@@ -57,7 +57,6 @@ model Post {
   id        String      @id @default(uuid()) @db.Uuid
   authorId  String      @db.Uuid
   caption   String      @default("") @db.VarChar(2200)
-  mediaType MediaType   @default(IMAGE)
   published Boolean     @default(false)
   createdAt DateTime    @default(now()) @db.Timestamptz(6)
   updatedAt DateTime    @updatedAt @db.Timestamptz(6)
@@ -68,7 +67,6 @@ model Post {
 
   @@index([published, createdAt])
   @@index([authorId, createdAt])
-  @@index([mediaType, published, createdAt])
 }
 
 model PostMedia {

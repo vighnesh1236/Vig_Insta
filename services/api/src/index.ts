@@ -290,7 +290,9 @@ app.get("/api/v1/posts", async (_req, res, next) => {
     const posts = await prisma.post.findMany({
       where: {
         published: true,
-        ...(query.data.mediaType ? { mediaType: query.data.mediaType } : {}),
+        ...(query.data.mediaType
+          ? { media: { some: { type: query.data.mediaType } } }
+          : {}),
       },
       orderBy: { createdAt: "desc" },
       take: 30,
