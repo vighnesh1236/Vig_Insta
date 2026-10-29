@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Vig_Insta",
+    "slug": "vig-insta",
+    "scheme": "viginsta",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-image",
+      "expo-video",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Vig_Insta uses your camera when you choose to capture a post.",
+          "microphonePermission": "Vig_Insta uses your microphone when you choose to record video."
+        }
+      ],
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "vig-insta",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "workspaces": [
+    "apps/mobile",
+    "services/api"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @vig-insta/api",
+    "dev:mobile": "npm run start -w @vig-insta/mobile",
+    "build:api": "npm run build -w @vig-insta/api",
+    "typecheck": "npm run typecheck -w @vig-insta/api && npm run typecheck -w @vig-insta/mobile",
+    "db:generate": "npm run db:generate -w @vig-insta/api",
+    "db:validate": "npm run db:validate -w @vig-insta/api",
+    "db:migrate": "npm run db:migrate -w @vig-insta/api",
+    "db:migrate:dev": "npm run db:migrate:dev -w @vig-insta/api",
+    "db:seed": "npm run db:seed -w @vig-insta/api"
+  }
+}

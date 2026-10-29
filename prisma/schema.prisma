@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model User {
+  id           String               @id @default(uuid()) @db.Uuid
+  username     String               @unique @db.VarChar(30)
+  email        String               @unique @db.VarChar(254)
+  passwordHash String
+  createdAt    DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime             @updatedAt @db.Timestamptz(6)
+  profile      UserProfile?
+  posts        Post[]
+  following    Follow[]             @relation("Following")
+  followers    Follow[]             @relation("Followers")
+  likes        Like[]
+  comments     Comment[]
+  messages     Message[]
+  memberships  ConversationMember[]
+}
+
+model UserProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @db.Uuid
+  displayName String   @db.VarChar(80)
+  bio         String   @default("") @db.VarChar(500)
+  avatarUrl   String?
+  isPrivate   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Follow {
+  followerId  String   @db.Uuid
+  followingId String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId, createdAt])
+}
+
+model Post {
+  id        String      @id @default(uuid()) @db.Uuid
+  authorId  String      @db.Uuid
+  caption   String      @default("") @db.VarChar(2200)
+  mediaType MediaType   @default(IMAGE)
+  published Boolean     @default(false)
+  createdAt DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime    @updatedAt @db.Timestamptz(6)
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  media     PostMedia[]
+  likes     Like[]
+  comments  Comment[]
+
+  @@index([published, createdAt])
+  @@index([authorId, createdAt])
+  @@index([mediaType, published, createdAt])
+}
+
+model PostMedia {
+  id        String    @id @default(uuid()) @db.Uuid
+  postId    String    @db.Uuid
+  url       String
+  type      MediaType
+  position  Int       @default(0)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, position])
+}
+
+model Like {
+  userId    String   @db.Uuid
+  postId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId, createdAt])
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  postId    String   @db.Uuid
+  body      String   @db.VarChar(2200)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model Conversation {
+  id        String               @id @default(uuid()) @db.Uuid
+  createdAt DateTime             @default(now()) @db.Timestamptz(6)
+  members   ConversationMember[]
+  messages  Message[]
+}
+
+model ConversationMember {
+  conversationId String       @db.Uuid
+  userId         String       @db.Uuid
+  joinedAt       DateTime     @default(now()) @db.Timestamptz(6)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId, joinedAt])
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  senderId       String       @db.Uuid
+  body           String       @db.VarChar(4000)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
