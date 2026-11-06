@@ -31,7 +31,7 @@ const corsOrigins = process.env.CORS_ORIGINS
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      imgSrc: ["'self'", "data:", "https://upload.wikimedia.org"],
+      imgSrc: ["'self'", "data:", "https://upload.wikimedia.org", "https://api.qrserver.com"],
     },
   },
 }));
