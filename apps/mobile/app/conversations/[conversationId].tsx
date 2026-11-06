@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,8 +14,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { apiRequest } from "../../src/api";
+import { apiRequest, getApiOrigin } from "../../src/api";
 import { useAuth } from "../../src/auth";
+import { useMessageNotifications } from "../../src/message-notifications";
 import { useTheme } from "../../src/theme";
 
 type Message = {
@@ -29,9 +31,18 @@ type ConversationRow = {
   members: { id: string; username: string; profile: { displayName: string | null } | null }[];
 };
 
+function mergeMessages(current: Message[], incoming: Message[]) {
+  const messages = new Map(current.map((message) => [message.id, message]));
+  for (const message of incoming) messages.set(message.id, message);
+  return [...messages.values()].sort((first, second) =>
+    first.createdAt.localeCompare(second.createdAt) || first.id.localeCompare(second.id),
+  );
+}
+
 export default function ConversationScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
   const { user, accessToken, loading: authLoading } = useAuth();
+  const { joinConversation } = useMessageNotifications();
   const { colors } = useTheme();
   const listRef = useRef<FlatList<Message>>(null);
   const [conversation, setConversation] = useState<ConversationRow | null>(null);
@@ -40,6 +51,7 @@ export default function ConversationScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<"connecting" | "connected" | "offline">("connecting");
 
   const loadMessages = useCallback(async () => {
     if (!accessToken || !conversationId) return;
@@ -48,7 +60,7 @@ export default function ConversationScreen() {
         apiRequest<Message[]>(`/conversations/${conversationId}/messages`, accessToken),
         apiRequest<ConversationRow[]>("/conversations", accessToken),
       ]);
-      setMessages(rows);
+      setMessages((current) => mergeMessages(current, rows));
       setConversation(chats.find((chat) => chat.id === conversationId) ?? null);
       setError(null);
     } catch (cause) {
@@ -64,9 +76,32 @@ export default function ConversationScreen() {
       return;
     }
     void loadMessages();
-    const timer = setInterval(() => void loadMessages(), 2500);
+    const timer = setInterval(() => {
+      if (realtimeStatus !== "connected") void loadMessages();
+    }, 2500);
     return () => clearInterval(timer);
-  }, [accessToken, loadMessages]);
+  }, [accessToken, loadMessages, realtimeStatus]);
+
+  useEffect(() => {
+    if (!accessToken || !conversationId) return;
+    joinConversation(conversationId);
+    const socket = io(getApiOrigin(), { auth: { token: accessToken } });
+    setRealtimeStatus("connecting");
+    socket.on("connect", () => {
+      setRealtimeStatus("connected");
+      socket.emit("conversation:join", conversationId);
+      void loadMessages();
+    });
+    socket.on("disconnect", () => setRealtimeStatus("offline"));
+    socket.on("connect_error", () => setRealtimeStatus("offline"));
+    socket.on("conversation:error", (message: string) => setError(message));
+    socket.on("message:new", (message: Message) => {
+      setMessages((current) => mergeMessages(current, [message]));
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [accessToken, conversationId, joinConversation, loadMessages]);
 
   async function sendMessage() {
     const body = text.trim();
@@ -78,7 +113,7 @@ export default function ConversationScreen() {
         method: "POST",
         body: JSON.stringify({ body }),
       });
-      setMessages((current) => [...current, message]);
+      setMessages((current) => mergeMessages(current, [message]));
       setText("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Message could not be sent.");
@@ -111,6 +146,11 @@ export default function ConversationScreen() {
         </Text>
         <View style={{ width: 22 }} />
       </View>
+      <Text style={[styles.connectionStatus, { color: realtimeStatus === "connected" ? colors.primary : colors.muted }]}>
+        {realtimeStatus === "connected"
+          ? "Live updates connected"
+          : "Live updates unavailable · checking periodically"}
+      </Text>
       {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
       <FlatList
         data={messages}
@@ -166,6 +206,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 },
   header: { height: 54, borderBottomWidth: 1, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerTitle: { fontSize: 17, fontWeight: "700" },
+  connectionStatus: { paddingHorizontal: 18, paddingTop: 7, fontSize: 12 },
   error: { paddingHorizontal: 18, paddingTop: 8 },
   messageList: { padding: 16, gap: 10 },
   messageEmpty: { flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 24 },

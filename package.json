@@ -13,6 +13,7 @@
     "dev:api": "npm run dev -w @vig-insta/api",
     "dev:mobile": "npm run start -w @vig-insta/mobile",
     "build:api": "npm run build -w @vig-insta/api",
+    "build:web": "npm run build:web -w @vig-insta/mobile",
     "typecheck": "npm run typecheck -w @vig-insta/api && npm run typecheck -w @vig-insta/mobile",
     "db:generate": "npm run db:generate -w @vig-insta/api",
     "db:validate": "npm run db:validate -w @vig-insta/api",

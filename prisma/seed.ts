@@ -56,6 +56,46 @@ const demoPosts = [
     mediaUrl: "https://upload.wikimedia.org/wikipedia/commons/0/07/Max_Verstappen_at_the_Red_Bull_Fan_Zone_%E2%80%93_Crown_Riverwalk%2C_Melbourne_%28028A7674%29.webm",
     media: MediaType.VIDEO,
   },
+  {
+    caption: [
+      "Bryan Cranston at the 2018 Berlin Film Festival. Screen favorite from Breaking Bad.",
+      "Photo: Martin Kraft · CC BY-SA 3.0",
+      "Source: https://commons.wikimedia.org/wiki/File:Bryan_Cranston_at_the_2018_Berlin_Film_Festival_(2).jpg",
+      "License: https://creativecommons.org/licenses/by-sa/3.0/",
+    ].join("\n"),
+    mediaUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Bryan_Cranston_at_the_2018_Berlin_Film_Festival_%282%29.jpg/960px-Bryan_Cranston_at_the_2018_Berlin_Film_Festival_%282%29.jpg",
+    media: MediaType.IMAGE,
+  },
+  {
+    caption: [
+      "Aaron Paul speaking at AMC The Grove about Ash. Screen favorite from Breaking Bad.",
+      "Photo: Kevin Paul · CC BY 4.0",
+      "Source: https://commons.wikimedia.org/wiki/File:Aaron_Paul_-_AMC_The_Grove_-_Ash.jpg",
+      "License: https://creativecommons.org/licenses/by/4.0/",
+    ].join("\n"),
+    mediaUrl: "https://upload.wikimedia.org/wikipedia/commons/9/9a/Aaron_Paul_-_AMC_The_Grove_-_Ash.jpg",
+    media: MediaType.IMAGE,
+  },
+  {
+    caption: [
+      "Michael C. Hall at the 2011 San Diego Comic-Con. Star of Dexter.",
+      "Photo: Keith McDuffee · CC BY 2.0",
+      "Source: https://commons.wikimedia.org/wiki/File:Michael_C._Hall_2011.jpg",
+      "License: https://creativecommons.org/licenses/by/2.0/",
+    ].join("\n"),
+    mediaUrl: "https://upload.wikimedia.org/wikipedia/commons/c/cf/Michael_C._Hall_2011.jpg",
+    media: MediaType.IMAGE,
+  },
+  {
+    caption: [
+      "The Avengers: Age of Ultron cast at the 2014 San Diego Comic-Con panel.",
+      "Photo: Gage Skidmore · CC BY-SA 2.0",
+      "Source: https://commons.wikimedia.org/wiki/File:Avengers_Age_of_Ultron_SDCC_2014_panel_(cropped).jpg",
+      "License: https://creativecommons.org/licenses/by-sa/2.0/",
+    ].join("\n"),
+    mediaUrl: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Avengers_Age_of_Ultron_SDCC_2014_panel_%28cropped%29.jpg",
+    media: MediaType.IMAGE,
+  },
 ];
 
 async function seed() {
@@ -87,7 +127,7 @@ async function seed() {
     });
   }
 
-  console.log(`Seeded ${demoPosts.length} licensed F1 demo posts for @${user.username}.`);
+  console.log(`Seeded ${demoPosts.length} licensed demo posts for @${user.username}.`);
 }
 
 seed()

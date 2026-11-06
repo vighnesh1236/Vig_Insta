@@ -1,4 +1,16 @@
+import { Platform } from "react-native";
+
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+export function getApiOrigin() {
+  if (!apiBaseUrl) {
+    throw new Error("Set EXPO_PUBLIC_API_BASE_URL in apps/mobile/.env.");
+  }
+  const url = Platform.OS === "web" && typeof globalThis.location !== "undefined"
+    ? new URL(apiBaseUrl, globalThis.location.origin)
+    : new URL(apiBaseUrl);
+  return url.origin;
+}
 
 export async function apiRequest<T>(
   path: string,

@@ -11,15 +11,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { demoPosts, DemoPost } from "../../src/demo-posts";
 import { useTheme } from "../../src/theme";
 
-type FeedPost = {
-  id: string;
-  caption: string;
-  createdAt: string;
+type FeedPost = Omit<DemoPost, "author"> & {
   author: { username: string; profile: { displayName: string | null } | null };
-  media: { id: string; url: string; type: string }[];
-  _count: { likes: number; comments: number };
 };
 
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -35,6 +31,7 @@ export default function HomeScreen() {
     async function loadFeed() {
       if (!apiBaseUrl) {
         setError("Set EXPO_PUBLIC_API_BASE_URL to connect to the Vig_Insta API.");
+        setPosts(demoPosts);
         setLoading(false);
         return;
       }
@@ -42,10 +39,14 @@ export default function HomeScreen() {
         const response = await fetch(`${apiBaseUrl}/posts?mediaType=IMAGE`);
         if (!response.ok) throw new Error(`Feed request failed (${response.status}).`);
         const result = (await response.json()) as { data: FeedPost[] };
-        if (active) setPosts(result.data);
+        if (active) {
+          const liveCaptions = new Set(result.data.map((post) => post.caption));
+          setPosts([...result.data, ...demoPosts.filter((post) => !liveCaptions.has(post.caption))]);
+        }
       } catch (cause) {
         if (active) {
           setError(cause instanceof Error ? cause.message : "Unable to load the feed.");
+          setPosts(demoPosts);
         }
       } finally {
         if (active) setLoading(false);
@@ -73,44 +74,48 @@ export default function HomeScreen() {
       </View>
       {loading ? (
         <ActivityIndicator style={styles.state} color={colors.primary} />
-      ) : error ? (
-        <View style={styles.state}>
-          <Text style={[styles.stateTitle, { color: colors.text }]}>Feed unavailable</Text>
-          <Text style={[styles.stateText, { color: colors.muted }]}>{error}</Text>
-        </View>
       ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={(post) => post.id}
-          contentContainerStyle={posts.length ? styles.feed : styles.state}
-          ListEmptyComponent={
-            <View>
-              <Text style={[styles.stateTitle, { color: colors.text }]}>Your feed starts here</Text>
-              <Text style={[styles.stateText, { color: colors.muted }]}>
-                Follow creators and share a post to bring your community to life.
+        <>
+          {error ? (
+            <View style={[styles.offlineNotice, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.offlineNoticeText, { color: colors.muted }]}>
+                Live feed unavailable. Showing licensed sample posts.
               </Text>
             </View>
-          }
-          renderItem={({ item }) => (
-            <View style={[styles.post, { borderColor: colors.border }]}>
-              <Text style={[styles.username, { color: colors.text }]}>@{item.author.username}</Text>
-              {item.media[0]?.url ? (
-                <Image
-                  contentFit="cover"
-                  source={{ uri: item.media[0].url }}
-                  style={styles.postImage}
-                />
-              ) : null}
-              <Text style={[styles.caption, { color: colors.text }]}>{item.caption}</Text>
-              <View style={styles.postActions}>
-                <Ionicons name="heart-outline" size={21} color={colors.text} />
-                <Text style={[styles.actionCount, { color: colors.muted }]}>{item._count.likes}</Text>
-                <Ionicons name="chatbubble-outline" size={20} color={colors.text} />
-                <Text style={[styles.actionCount, { color: colors.muted }]}>{item._count.comments}</Text>
+          ) : null}
+          <FlatList
+            data={posts}
+            keyExtractor={(post) => post.id}
+            contentContainerStyle={posts.length ? styles.feed : styles.state}
+            ListEmptyComponent={
+              <View>
+                <Text style={[styles.stateTitle, { color: colors.text }]}>Your feed starts here</Text>
+                <Text style={[styles.stateText, { color: colors.muted }]}>
+                  Follow creators and share a post to bring your community to life.
+                </Text>
               </View>
-            </View>
-          )}
-        />
+            }
+            renderItem={({ item }) => (
+              <View style={[styles.post, { borderColor: colors.border }]}>
+                <Text style={[styles.username, { color: colors.text }]}>@{item.author.username}</Text>
+                {item.media[0]?.url ? (
+                  <Image
+                    contentFit="cover"
+                    source={{ uri: item.media[0].url }}
+                    style={styles.postImage}
+                  />
+                ) : null}
+                <Text style={[styles.caption, { color: colors.text }]}>{item.caption}</Text>
+                <View style={styles.postActions}>
+                  <Ionicons name="heart-outline" size={21} color={colors.text} />
+                  <Text style={[styles.actionCount, { color: colors.muted }]}>{item._count.likes}</Text>
+                  <Ionicons name="chatbubble-outline" size={20} color={colors.text} />
+                  <Text style={[styles.actionCount, { color: colors.muted }]}>{item._count.comments}</Text>
+                </View>
+              </View>
+            )}
+          />
+        </>
       )}
     </SafeAreaView>
   );
@@ -133,6 +138,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#F0EFF4",
   },
+  offlineNotice: { paddingHorizontal: 16, paddingVertical: 9 },
+  offlineNoticeText: { fontSize: 12, textAlign: "center" },
   storyRing: {
     width: 58,
     height: 58,

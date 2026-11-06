@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: vig-insta
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run db:generate && npm run build:api && npm run build:web
+    startCommand: npm run db:migrate && npm run start -w @vig-insta/api
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.1
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: EXPO_PUBLIC_API_BASE_URL
+        value: /api/v1

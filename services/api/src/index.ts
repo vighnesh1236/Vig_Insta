@@ -5,7 +5,11 @@ import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import jwt, { JwtPayload } from "jsonwebtoken";
+import { existsSync } from "node:fs";
+import { createServer } from "node:http";
+import path from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { Server } from "socket.io";
 import { z } from "zod";
 
 const prisma = new PrismaClient();
@@ -39,6 +43,55 @@ app.use("/api/v1", rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 }));
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: corsOrigins.length ? corsOrigins : false },
+});
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (typeof token !== "string") {
+    next(new Error("Authentication required."));
+    return;
+  }
+  try {
+    const payload = jwt.verify(token, jwtSecret) as JwtPayload;
+    if (typeof payload.sub !== "string") throw new Error("Token subject is missing.");
+    socket.data.userId = payload.sub;
+    next();
+  } catch {
+    next(new Error("Invalid or expired access token."));
+  }
+});
+
+io.on("connection", (socket) => {
+  socket.on("conversation:join", async (conversationId: unknown) => {
+    const parsedId = z.string().uuid().safeParse(conversationId);
+    if (!parsedId.success) {
+      socket.emit("conversation:error", "Invalid conversation ID.");
+      return;
+    }
+    try {
+      const membership = await prisma.conversationMember.findUnique({
+        where: {
+          conversationId_userId: {
+            conversationId: parsedId.data,
+            userId: socket.data.userId,
+          },
+        },
+      });
+      if (!membership) {
+        socket.emit("conversation:error", "Conversation not found.");
+        return;
+      }
+      await socket.join(parsedId.data);
+    } catch (error) {
+      console.error("Unable to join conversation updates:", error);
+      socket.emit("conversation:error", "Live updates are temporarily unavailable.");
+    }
+  });
+});
 
 type AuthRequest = Request & { userId?: string };
 
@@ -136,6 +189,40 @@ app.get("/api/v1/auth/me", authenticate, async (req: AuthRequest, res, next) => 
       return;
     }
     res.json({ data: user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/v1/users", authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const query = z.object({ search: z.string().trim().max(50).optional() }).safeParse(req.query);
+    if (!query.success) {
+      res.status(400).json({ error: "Search text must be 50 characters or fewer.", details: query.error.issues });
+      return;
+    }
+    const search = query.data.search?.trim();
+    const users = await prisma.user.findMany({
+      where: {
+        id: { not: req.userId! },
+        ...(search
+          ? {
+              OR: [
+                { username: { contains: search, mode: "insensitive" } },
+                { profile: { is: { displayName: { contains: search, mode: "insensitive" } } } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: {
+        id: true,
+        username: true,
+        profile: { select: { displayName: true, avatarUrl: true } },
+      },
+    });
+    res.json({ data: users });
   } catch (error) {
     next(error);
   }
@@ -241,11 +328,11 @@ app.get("/api/v1/conversations/:conversationId/messages", authenticate, async (r
     }
     const messages = await prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 100,
       include: { sender: { select: { id: true, username: true } } },
     });
-    res.json({ data: messages });
+    res.json({ data: messages.reverse() });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: "Invalid conversation ID." });
@@ -270,6 +357,7 @@ app.post("/api/v1/conversations/:conversationId/messages", authenticate, async (
       data: { conversationId, senderId: req.userId!, body },
       include: { sender: { select: { id: true, username: true } } },
     });
+    io.to(conversationId).emit("message:new", message);
     res.status(201).json({ data: message });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -419,6 +507,20 @@ app.post("/api/v1/users/:userId/follow", authenticate, async (req: AuthRequest, 
   }
 });
 
+const webBuildPath = path.resolve(__dirname, "../../../apps/mobile/dist");
+if (existsSync(webBuildPath)) {
+  app.use(express.static(webBuildPath));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/") || !req.accepts("html")) {
+      next();
+      return;
+    }
+    res.sendFile(path.join(webBuildPath, "index.html"), (error) => {
+      if (error) next(error);
+    });
+  });
+}
+
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error("API request failed:", error);
   if (error instanceof SyntaxError && "body" in error) {
@@ -433,12 +535,14 @@ function isUniqueConstraintError(error: unknown): boolean {
     (error as { code?: string }).code === "P2002";
 }
 
-const server = app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`Vig_Insta API listening on port ${port}`);
 });
 
 async function shutdown() {
-  server.close();
+  await new Promise<void>((resolve, reject) => {
+    io.close((error) => error ? reject(error) : resolve());
+  });
   await prisma.$disconnect();
 }
 

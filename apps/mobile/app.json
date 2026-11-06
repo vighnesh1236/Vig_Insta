@@ -18,8 +18,7 @@
           "cameraPermission": "Vig_Insta uses your camera when you choose to capture a post.",
           "microphonePermission": "Vig_Insta uses your microphone when you choose to record video."
         }
-      ],
-      "expo-notifications"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
