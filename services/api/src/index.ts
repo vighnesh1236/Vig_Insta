@@ -28,7 +28,13 @@ const corsOrigins = process.env.CORS_ORIGINS
     ? []
     : ["http://localhost:8081", "http://127.0.0.1:8081"];
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      imgSrc: ["'self'", "data:", "https://upload.wikimedia.org"],
+    },
+  },
+}));
 app.use(cors({ origin: corsOrigins.length ? corsOrigins : false }));
 app.use(express.json({ limit: "1mb" }));
 app.use("/api/v1/auth", rateLimit({
